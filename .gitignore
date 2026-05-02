@@ -1,0 +1,63 @@
+# Windows OS junk
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS junk (in case anyone clones to a Mac)
+.DS_Store
+._*
+
+# Editor / IDE folders
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Hyper-V / VM artifacts — NEVER commit these (huge files + may contain secrets)
+*.vhd
+*.vhdx
+*.avhd
+*.avhdx
+*.iso
+*.vmcx
+*.vmrs
+*.vmgs
+*.bin
+*.xml.bak
+*.checkpoint
+
+# Credentials / secrets — defense in depth
+*.pem
+*.key
+*.pfx
+*.cer
+*.crt
+secrets.json
+credentials.txt
+.env
+.env.*
+*-secret.*
+*-private.*
+*password*
+*credentials*
+
+# PowerShell transcript / history files (may contain typed passwords)
+PowerShell_transcript.*
+ConsoleHost_history.txt
+
+# Temp / log files
+tmp/
+temp/
+logs/
+*.log
+*.tmp
+*.bak
+
+# Lab-specific
+HyperV/
+VMs/
+ISOs/
