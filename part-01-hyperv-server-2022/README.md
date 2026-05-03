@@ -1,4 +1,4 @@
-﻿# Part 1 â€” Hyper-V + Windows Server 2022
+# Part 1 - Hyper-V + Windows Server 2022
 
 > Provisioning the foundation: Hyper-V host setup, internal virtual switch, Windows Server 2022 VM, and baseline configuration ready for Active Directory promotion.
 
@@ -6,7 +6,7 @@
 
 ## Objective
 
-Build a Windows Server 2022 virtual machine on Hyper-V that is correctly named, statically addressed, and DNS-self-referencing â€” the prerequisites for promoting it to a Domain Controller in Part 2.
+Build a Windows Server 2022 virtual machine on Hyper-V that is correctly named, statically addressed, and DNS-self-referencing - the prerequisites for promoting it to a Domain Controller in Part 2.
 
 By the end of Part 1, the server `DC01` is running on an isolated virtual network, ready to host AD DS, DNS, and DHCP roles.
 
@@ -15,39 +15,39 @@ By the end of Part 1, the server `DC01` is running on an isolated virtual networ
 ## Lab State After Part 1
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚              Hyper-V Host (Windows 11 Pro)              â”‚
-â”‚                                                         â”‚
-â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                               â”‚
-â”‚  â”‚  DC01                â”‚                               â”‚
-â”‚  â”‚  Windows Server 2022 â”‚                               â”‚
-â”‚  â”‚  Static: 10.0.0.10   â”‚                               â”‚
-â”‚  â”‚  DNS:    127.0.0.1   â”‚                               â”‚
-â”‚  â”‚  Workgroup           â”‚  â† AD not installed yet       â”‚
-â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                               â”‚
-â”‚                  Internal vSwitch: LAB-NET              â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
++---------------------------------------------------------+
+|              Hyper-V Host (Windows 11 Pro)              |
+|                                                         |
+|  +----------------------+                               |
+|  |  DC01                |                               |
+|  |  Windows Server 2022 |                               |
+|  |  Static: 10.0.0.10   |                               |
+|  |  DNS:    127.0.0.1   |                               |
+|  |  Workgroup           |  <- AD not installed yet       |
+|  +----------------------+                               |
+|                  Internal vSwitch: LAB-NET              |
++---------------------------------------------------------+
 ```
 
 ---
 
 ## Steps Performed
 
-### 1.1 â€” Enable Hyper-V on the Windows 11 Pro host
+### 1.1 - Enable Hyper-V on the Windows 11 Pro host
 
-Hyper-V is included with Windows 11 Pro but disabled by default. Enabled the feature via the Optional Features dialog (`OptionalFeatures.exe` â†’ Hyper-V â†’ both sub-items checked) and rebooted.
+Hyper-V is included with Windows 11 Pro but disabled by default. Enabled the feature via the Optional Features dialog (`OptionalFeatures.exe` -> Hyper-V -> both sub-items checked) and rebooted.
 
 After reboot, Hyper-V Manager is accessible from the Start menu:
 
-![Hyper-V Manager â€” empty](./screenshots/01-hyperv-manager-empty.png)
+![Hyper-V Manager - empty](./screenshots/01-hyperv-manager-empty.png)
 
 The host appears in the left pane with an empty Virtual Machines list, confirming Hyper-V is running and the management console can connect to it.
 
 ---
 
-### 1.2 â€” Create internal virtual switch `LAB-NET`
+### 1.2 - Create internal virtual switch `LAB-NET`
 
-A virtual switch is the network the lab VMs will live on. **Internal** type is intentional â€” VMs can communicate with each other and with the host, but cannot reach the home network or the public internet. This isolates the lab so that a misconfigured DC (running DHCP/DNS) cannot affect production systems.
+A virtual switch is the network the lab VMs will live on. **Internal** type is intentional - VMs can communicate with each other and with the host, but cannot reach the home network or the public internet. This isolates the lab so that a misconfigured DC (running DHCP/DNS) cannot affect production systems.
 
 ```powershell
 New-VMSwitch -Name "LAB-NET" -SwitchType Internal -Notes "Isolated lab network for IT Helpdesk Lab 2026"
@@ -59,13 +59,13 @@ Verify:
 Get-VMSwitch | Where-Object { $_.Name -eq "LAB-NET" }
 ```
 
-The host receives a corresponding virtual NIC named `vEthernet (LAB-NET)`, visible in `ncpa.cpl`. This is the host's interface into the lab network â€” it lets PowerShell remoting and file copies work later without external tools.
+The host receives a corresponding virtual NIC named `vEthernet (LAB-NET)`, visible in `ncpa.cpl`. This is the host's interface into the lab network - it lets PowerShell remoting and file copies work later without external tools.
 
 ![LAB-NET virtual switch](./screenshots/02-virtual-switch-lab-net.png)
 
 ---
 
-### 1.3 â€” Download Windows Server 2022 evaluation ISO
+### 1.3 - Download Windows Server 2022 evaluation ISO
 
 Source: [Microsoft Evaluation Center](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2022). The 180-day evaluation is the full Standard/Datacenter edition with no functional restrictions.
 
@@ -80,7 +80,7 @@ Final path: `D:\HyperV\ISOs\SERVER_EVAL_x64FRE_en-us.iso`
 
 ---
 
-### 1.4 â€” Create the `DC01` virtual machine
+### 1.4 - Create the `DC01` virtual machine
 
 Created via Hyper-V Manager with these specifications:
 
@@ -119,17 +119,17 @@ Add-VMDvdDrive -VMName $vmName -Path $isoPath
 
 ---
 
-### 1.5 â€” Install Windows Server 2022 Standard (Desktop Experience)
+### 1.5 - Install Windows Server 2022 Standard (Desktop Experience)
 
-Booted DC01 from the mounted ISO and walked the standard Windows Server installer. Selected **Standard Edition with Desktop Experience** (the GUI version â€” Server Core is deliberately not used because the lab requires the GUI for tooling like Server Manager, ADUC, and GPMC).
+Booted DC01 from the mounted ISO and walked the standard Windows Server installer. Selected **Standard Edition with Desktop Experience** (the GUI version - Server Core is deliberately not used because the lab requires the GUI for tooling like Server Manager, ADUC, and GPMC).
 
 Set the Administrator password during the out-of-box experience (OOBE) and reached the Server Manager dashboard on first login.
 
-![Server 2022 first boot â€” Server Manager](./screenshots/05-server-2022-first-boot.png)
+![Server 2022 first boot - Server Manager](./screenshots/05-server-2022-first-boot.png)
 
 ---
 
-### 1.6 â€” Rename the computer to `DC01`
+### 1.6 - Rename the computer to `DC01`
 
 The default Windows-generated computer name (`WIN-XXXXXXXXX`) was changed to `DC01` *before* AD promotion. Renaming a server **after** it has been promoted to a DC is supported but introduces replication and DNS complications. Standard practice is to finalize the hostname first.
 
@@ -144,14 +144,15 @@ hostname
 # DC01
 ```
 
+![Computer renamed to DC01](./screenshots/06-rename-computer-dc01.png)
 
 ---
 
-### 1.7 â€” Configure static IP on LAB-NET adapter
+### 1.7 - Configure static IP on LAB-NET adapter
 
 A Domain Controller must have a static IP. AD relies on stable DNS records that resolve to predictable addresses; if the DC's IP changes, every domain-joined machine fails to authenticate until DNS catches up. DHCP for a DC is never appropriate.
 
-The first DC in a forest is its own DNS server, so it points DNS at the loopback address `127.0.0.1`. This becomes important in Part 2 when the AD DS role installs DNS on this machine â€” the server can resolve its own records before any external DNS is configured.
+The first DC in a forest is its own DNS server, so it points DNS at the loopback address `127.0.0.1`. This becomes important in Part 2 when the AD DS role installs DNS on this machine - the server can resolve its own records before any external DNS is configured.
 
 ```powershell
 # Identify the lab adapter
@@ -172,7 +173,7 @@ No default gateway is set. The lab network has no internet egress yet (LAB-NET i
 
 ---
 
-### 1.8 â€” Reboot and verify
+### 1.8 - Reboot and verify
 
 ```powershell
 Restart-Computer -Force
@@ -203,16 +204,16 @@ Get-DnsClientServerAddress -InterfaceAlias "Ethernet" -AddressFamily IPv4 |
 
 ## Lessons Learned / Issues Resolved
 
-### Issue 1 â€” Bootloader fail / PXE boot loop
+### Issue 1 - Bootloader fail / PXE boot loop
 
 **Symptom:** On first VM start, the install did not begin. Instead, the VM displayed "Start PXE over IPv4" and hung trying to network-boot.
 
-**Diagnosis:** The DVD drive was either not the first device in the boot order, or Secure Boot rejected the eval ISO's bootloader signature. Either condition causes Hyper-V to fall through to the next boot device â€” the network adapter â€” which has no PXE server to respond.
+**Diagnosis:** The DVD drive was either not the first device in the boot order, or Secure Boot rejected the eval ISO's bootloader signature. Either condition causes Hyper-V to fall through to the next boot device - the network adapter - which has no PXE server to respond.
 
 **Resolution:**
 1. Powered the VM off (`Stop-VM -Name DC01 -TurnOff`)
-2. Set the boot order so DVD Drive is first (Hyper-V Manager â†’ DC01 â†’ Settings â†’ Firmware â†’ Move Up)
-3. Disabled Secure Boot (Settings â†’ Security â†’ uncheck **Enable Secure Boot**)
+2. Set the boot order so DVD Drive is first (Hyper-V Manager -> DC01 -> Settings -> Firmware -> Move Up)
+3. Disabled Secure Boot (Settings -> Security -> uncheck **Enable Secure Boot**)
 4. Started the VM and pressed a key promptly at the "Press any key to boot from CD or DVD..." prompt
 
 After the fix the installer launched normally. Secure Boot can be re-enabled after install if desired; for a lab VM the default-off configuration is acceptable.
@@ -221,7 +222,7 @@ After the fix the installer launched normally. Secure Boot can be re-enabled aft
 
 ---
 
-### Issue 2 â€” `Restart-Computer` not recognized in CMD
+### Issue 2 - `Restart-Computer` not recognized in CMD
 
 **Symptom:**
 ```
@@ -244,7 +245,7 @@ shutdown /r /t 0
 ## Skills Demonstrated
 
 - Hyper-V feature enablement and Manager usage
-- Virtual switch design (Internal vs External vs Private â€” and why)
+- Virtual switch design (Internal vs External vs Private - and why)
 - Hyper-V Generation 2 VM provisioning
 - Windows Server 2022 unattended OS installation
 - PowerShell-driven post-install configuration:
@@ -258,4 +259,4 @@ shutdown /r /t 0
 
 ## What's Next
 
-[Part 2 â€” Active Directory + PowerShell Promotion](../part-02-active-directory/) â€” Install the AD DS role, promote `DC01` to the first Domain Controller in a new forest (`mandolab.local`), and verify the domain is healthy.
+[Part 2 - Active Directory + PowerShell Promotion](../part-02-active-directory/) - Install the AD DS role, promote `DC01` to the first Domain Controller in a new forest (`mandolab.local`), and verify the domain is healthy.
