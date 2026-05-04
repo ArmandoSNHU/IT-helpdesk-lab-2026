@@ -2,7 +2,7 @@
 
 > Installing the Active Directory Domain Services (AD DS) role on `DC01`, promoting it to the first Domain Controller in a new forest, and verifying domain health.
 
-**Status:** In progress - AD DS role installed, promotion pending.
+**Status:** Complete - `mandolab.local` forest is live, DC01 is a fully operational Domain Controller.
 
 ---
 
@@ -17,7 +17,9 @@ Transform `DC01` from a standalone Windows Server into the first Domain Controll
 
 ---
 
-## Lab State Target
+## Lab State After Part 2
+
+```
 +---------------------------------------------------------+
 |              Hyper-V Host (Windows 11 Pro)              |
 |                                                         |
@@ -25,12 +27,13 @@ Transform `DC01` from a standalone Windows Server into the first Domain Controll
 |  |  DC01                |                               |
 |  |  Forest: mandolab.local                              |
 |  |  Domain: mandolab.local                              |
-|  |  Roles:  AD DS, DNS, KDC                             |
+|  |  Roles:  AD DS, DNS, KDC, GC                         |
 |  |  Static: 10.0.0.10                                   |
 |  |  DNS:    127.0.0.1                                   |
 |  +----------------------+                               |
 |                  Internal vSwitch: LAB-NET              |
 +---------------------------------------------------------+
+```
 
 ---
 
@@ -62,7 +65,7 @@ This lab uses a **single-forest, single-domain** model - the most common configu
 
 ---
 
-## Steps Performed (so far)
+## Steps Performed
 
 ### 2.1 - Verify prerequisites
 
@@ -113,26 +116,130 @@ The state transitions from `Available` (before) to `Installed` (after). At this 
 
 ---
 
-## What's Next in Part 2
+### 2.3 - Promote DC01 to a Domain Controller
 
-Steps 2.3 onward will be documented after the promotion completes:
+This is the action that creates the `mandolab.local` forest and makes DC01 the first DC in it. A single PowerShell call performs the full promotion: builds the AD database, creates the SYSVOL share, installs DNS, configures Kerberos, and reboots the server.
 
-- **2.3** - Promote `DC01` to a Domain Controller via `Install-ADDSForest`, creating the `mandolab.local` forest
-- **2.4** - Verify domain health (forest functional level, FSMO roles, DNS records, SYSVOL share)
-- **2.5** - Confirm administrative login works as `MANDOLAB\Administrator`
+```powershell
+Install-ADDSForest `
+    -DomainName "mandolab.local" `
+    -DomainNetbiosName "MANDOLAB" `
+    -ForestMode "WinThreshold" `
+    -DomainMode "WinThreshold" `
+    -InstallDns `
+    -NoRebootOnCompletion:$false `
+    -Force:$true
+```
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `-DomainName` | `mandolab.local` | Full DNS name of the new domain |
+| `-DomainNetbiosName` | `MANDOLAB` | Legacy NetBIOS name, used in `MANDOLAB\username` style logins |
+| `-ForestMode` / `-DomainMode` | `WinThreshold` | Windows Server 2016 functional level (current maximum even on Server 2022) |
+| `-InstallDns` | flag | Auto-installs DNS Server role and creates the AD-integrated DNS zone |
+| `-NoRebootOnCompletion:$false` | flag | Reboot automatically when promotion completes |
+| `-Force:$true` | flag | Skip interactive confirmation prompts |
+
+**DSRM password:** During promotion, PowerShell prompts for a Directory Services Restore Mode (DSRM) password. This is separate from the Administrator password and is only used to boot the DC into safe mode for AD database recovery. A strong, documented password was set during this step.
+
+After promotion completed, `DC01` rebooted automatically. On next login the account context changed from `DC01\Administrator` (local) to `MANDOLAB\Administrator` (domain) - the first visible confirmation that the promotion succeeded.
 
 ---
 
-## Skills Demonstrated (so far)
+### 2.4 - Verify domain health
 
-- AD DS role installation via PowerShell (`Install-WindowsFeature`)
-- Pre-promotion validation: hostname, static IP, DNS configuration
-- Understanding of role installation vs DC promotion (separate phases)
-- Conceptual understanding of forests, domains, and OUs
-- Selection of domain naming for an isolated lab environment
+Three commands provide a complete health snapshot of the new domain. Each one tests a different layer: directory service, forest topology, and DNS/locator.
+
+```powershell
+Get-ADDomain | Format-List Name, DNSRoot, DomainMode, NetBIOSName, PDCEmulator
+Get-ADForest | Format-List Name, ForestMode, RootDomain, GlobalCatalogs
+nltest /dsgetdc:mandolab.local
+```
+
+![Domain health verified](./screenshots/02-domain-health-verified.png)
+
+**What this proves:**
+
+- **`Get-ADDomain`** confirms the domain object exists, the functional level is `Windows2016Domain`, and the PDC emulator FSMO role is held by `DC01.mandolab.local`.
+- **`Get-ADForest`** confirms the forest `mandolab.local` exists at functional level `Windows2016Forest`, and `DC01` is the Global Catalog server.
+- **`nltest /dsgetdc`** is the gold-standard "DC locator" test. The returned flags indicate every critical service is operational:
+
+| Flag | Meaning |
+|------|---------|
+| `PDC` | PDC Emulator role active |
+| `GC` | Global Catalog active |
+| `DS` | Directory Service running |
+| `LDAP` | LDAP queries answered |
+| `KDC` | Kerberos Key Distribution Center responding |
+| `WRITABLE` | Read-write DC (not RODC) |
+| `DNS_DC`, `DNS_DOMAIN`, `DNS_FOREST` | All AD-integrated DNS records registered |
+
+`The command completed successfully` is the explicit success message from `nltest`.
+
+---
+
+### 2.5 - Confirm critical services are running
+
+Beyond the domain object existing, the underlying Windows services must be running for AD to actually function. Four services are the minimum for a healthy DC:
+
+```powershell
+Get-Service -Name NTDS, ADWS, Netlogon, DNS | Format-Table Name, Status
+```
+
+| Service | Role |
+|---------|------|
+| `NTDS` | Active Directory Domain Services - the AD database engine |
+| `ADWS` | Active Directory Web Services - PowerShell `ActiveDirectory` module backend |
+| `Netlogon` | Maintains the secure channel between the DC and other domain members |
+| `DNS` | DNS Server - serves the `mandolab.local` zone |
+
+![AD services running](./screenshots/03-ad-services-running.png)
+
+All four services show `Running` status. If any one of these were stopped, AD would be partially or fully nonfunctional - making this a useful go-to triage command for any DC issue in production.
+
+---
+
+## Issues Resolved
+
+### Issue - `Install-ADDSForest` parameter validation errors
+
+**Symptom:** First two attempts to run `Install-ADDSForest` failed prerequisites check with errors about `CreateDNSDelegation` and `DataBasePath` parameters being unrecognized, despite documentation listing both as valid.
+
+**Diagnosis:** The `-CreateDnsDelegation` parameter is only valid when delegating into an existing parent DNS zone. Since `.local` has no public DNS hierarchy to delegate from, the parameter is rejected. The path parameters (`-DatabasePath`, `-LogPath`, `-SysvolPath`) appeared to have casing/version sensitivity in the installed PowerShell module.
+
+**Resolution:** Removed all of the optional path and delegation parameters and let the installer use defaults:
+
+```powershell
+Install-ADDSForest `
+    -DomainName "mandolab.local" `
+    -DomainNetbiosName "MANDOLAB" `
+    -ForestMode "WinThreshold" `
+    -DomainMode "WinThreshold" `
+    -InstallDns `
+    -NoRebootOnCompletion:$false `
+    -Force:$true
+```
+
+The defaults match what would have been specified explicitly (`C:\Windows\NTDS` and `C:\Windows\SYSVOL`), so functionality is unchanged. The cleaner command is also less brittle across Server versions.
+
+**Takeaway:** When a parameter validation fails, drop the optional parameters one at a time before assuming the cmdlet is broken. Microsoft cmdlets often have parameters that depend on the surrounding configuration being a certain way.
+
+---
+
+## Skills Demonstrated
+
+- AD DS role installation and DC promotion via PowerShell (`Install-WindowsFeature`, `Install-ADDSForest`)
+- Forest and domain creation (single-domain, single-forest topology)
+- Functional level selection (Windows Server 2016 - current maximum)
+- DSRM password configuration for AD disaster recovery
+- AD-integrated DNS zone creation
+- Domain health verification using `Get-ADDomain`, `Get-ADForest`, and `nltest`
+- Identification and validation of critical AD services (NTDS, ADWS, Netlogon, DNS)
+- Interpretation of FSMO roles (PDC Emulator, Global Catalog)
+- Troubleshooting cmdlet parameter validation errors
 
 ---
 
 ## What's Next
 
-[Part 3 - AD Users, OUs, and Command Prompt](../part-03-ad-users-cmd/) - Once promotion is complete, populate the domain with organizational units, user accounts, and security groups using both ADUC and PowerShell.
+[Part 3 - AD Users, OUs, and Command Prompt](../part-03-ad-users-cmd/) - Now that the domain exists, populate it with Organizational Units, user accounts, and security groups. Demonstrates both ADUC (GUI) and PowerShell (`New-ADOrganizationalUnit`, `New-ADUser`, `New-ADGroup`) workflows that helpdesk technicians use daily.
