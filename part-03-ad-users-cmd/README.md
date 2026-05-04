@@ -157,7 +157,7 @@ Three users were created, each in their respective department OU, with realistic
 The pattern shown here (one example - others are identical with their respective values):
 
 ```powershell
-$labPassword = ConvertTo-SecureString "Welcome2026!" -AsPlainText -Force
+$labPassword = ConvertTo-SecureString "<LabUserPassword>" -AsPlainText -Force
 
 New-ADUser `
     -Name "Mando Gomez" `
