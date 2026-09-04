@@ -1,0 +1,6 @@
+FirstName,LastName,Department,Title,JobOU
+Jane,Doe,IT,Help Desk Technician,"OU=IT,OU=LabUsers,DC=lab,DC=local"
+Marcus,Hill,IT,Systems Administrator,"OU=IT,OU=LabUsers,DC=lab,DC=local"
+Priya,Raman,Finance,Accounts Payable Clerk,"OU=Finance,OU=LabUsers,DC=lab,DC=local"
+Tomas,Reyes,Operations,Dispatch Coordinator,"OU=Operations,OU=LabUsers,DC=lab,DC=local"
+Ada,Fournier,HR,HR Generalist,"OU=HR,OU=LabUsers,DC=lab,DC=local"
