@@ -21,7 +21,12 @@ on anything that writes, logging, and exit codes so they can be scheduled.
 .\New-LabADUser.ps1 -CsvPath .\users.sample.csv -Verbose
 ```
 
-Three decisions worth calling out:
+**The password is a `SecureString`, never a plaintext parameter.** PSScriptAnalyzer
+flags `ConvertTo-SecureString -AsPlainText` as an error for good reason: a plaintext
+password parameter ends up in PSReadLine history, process listings, and transcript
+logs. Omit `-DefaultPassword` and PowerShell prompts for it securely.
+
+Three more decisions worth calling out:
 
 **Validate the whole file before creating anything.** A half-applied onboarding
 batch is much worse to clean up than a rejected CSV. Missing columns or blank

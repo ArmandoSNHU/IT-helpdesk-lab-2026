@@ -16,7 +16,9 @@
     Extra columns are ignored.
 
 .PARAMETER DefaultPassword
-    Initial password. Users must change it at first logon.
+    Initial password as a SecureString. Users must change it at first logon.
+    If omitted the script prompts, so the password never lands in a command
+    line, a script file, or PowerShell history.
 
 .PARAMETER LogPath
     Directory for the run log. Defaults to .\logs.
@@ -48,8 +50,11 @@ param(
     [ValidateNotNullOrEmpty()]
     [string]$DomainSuffix = 'lab.local',
 
-    [ValidateLength(12, 128)]
-    [string]$DefaultPassword = 'ChangeMe.OnFirstLogon!24',
+    # SecureString, not [string]. A plaintext password parameter ends up in
+    # PSReadLine history, process listings and transcript logs. Omitting it
+    # makes PowerShell prompt securely instead.
+    [Parameter(Mandatory)]
+    [SecureString]$DefaultPassword,
 
     [string]$LogPath = (Join-Path $PSScriptRoot 'logs')
 )
@@ -66,7 +71,7 @@ begin {
     if (-not (Test-Path $LogPath)) { New-Item -ItemType Directory -Path $LogPath -Force | Out-Null }
     $logFile = Join-Path $LogPath ("New-LabADUser_{0:yyyyMMdd-HHmmss}.log" -f (Get-Date))
 
-    function Write-Log {
+    function Write-RunLog {
         param([string]$Message, [ValidateSet('INFO', 'WARN', 'ERROR')][string]$Level = 'INFO')
         $line = "{0:yyyy-MM-dd HH:mm:ss} [{1}] {2}" -f (Get-Date), $Level, $Message
         Add-Content -Path $logFile -Value $line
@@ -86,7 +91,7 @@ begin {
     }
 
     $stats = [ordered]@{ Created = 0; Skipped = 0; Failed = 0 }
-    Write-Log "Run started. CSV=$CsvPath WhatIf=$($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('WhatIf'))"
+    Write-RunLog "Run started. CSV=$CsvPath WhatIf=$($PSCmdlet.MyInvocation.BoundParameters.ContainsKey('WhatIf'))"
 }
 
 process {
@@ -105,9 +110,7 @@ process {
     if ($blank) {
         throw "$($blank.Count) row(s) have a blank FirstName or LastName. Fix the CSV and re-run."
     }
-    Write-Log "Validated $($rows.Count) row(s); all required columns present."
-
-    $securePassword = ConvertTo-SecureString $DefaultPassword -AsPlainText -Force
+    Write-RunLog "Validated $($rows.Count) row(s); all required columns present."
 
     foreach ($row in $rows) {
         $sam = Get-SamAccountName -First $row.FirstName -Last $row.LastName
@@ -115,13 +118,13 @@ process {
 
         # Idempotent: re-running the same CSV must not error or duplicate.
         if (Get-ADUser -Filter "SamAccountName -eq '$sam'" -ErrorAction SilentlyContinue) {
-            Write-Log "SKIP  $sam ($display) already exists." -Level WARN
+            Write-RunLog "SKIP  $sam ($display) already exists." -Level WARN
             $stats.Skipped++
             continue
         }
 
         if (-not (Get-ADOrganizationalUnit -Filter "DistinguishedName -eq '$($row.JobOU)'" -ErrorAction SilentlyContinue)) {
-            Write-Log "FAIL  $sam target OU does not exist: $($row.JobOU)" -Level ERROR
+            Write-RunLog "FAIL  $sam target OU does not exist: $($row.JobOU)" -Level ERROR
             $stats.Failed++
             continue
         }
@@ -138,15 +141,15 @@ process {
                     -Department $row.Department `
                     -Title $row.Title `
                     -Path $row.JobOU `
-                    -AccountPassword $securePassword `
+                    -AccountPassword $DefaultPassword `
                     -ChangePasswordAtLogon $true `
                     -Enabled $true
 
-                Write-Log "OK    Created $sam ($display) in $($row.JobOU)"
+                Write-RunLog "OK    Created $sam ($display) in $($row.JobOU)"
                 $stats.Created++
             }
             catch {
-                Write-Log "FAIL  $sam - $($_.Exception.Message)" -Level ERROR
+                Write-RunLog "FAIL  $sam - $($_.Exception.Message)" -Level ERROR
                 $stats.Failed++
             }
         }
@@ -154,7 +157,7 @@ process {
 }
 
 end {
-    Write-Log "Run complete. Created=$($stats.Created) Skipped=$($stats.Skipped) Failed=$($stats.Failed)"
+    Write-RunLog "Run complete. Created=$($stats.Created) Skipped=$($stats.Skipped) Failed=$($stats.Failed)"
     Write-Host ""
     Write-Host "  Created : $($stats.Created)" -ForegroundColor Green
     Write-Host "  Skipped : $($stats.Skipped) (already existed)" -ForegroundColor Yellow
