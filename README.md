@@ -39,23 +39,23 @@ Domain: `mandolab.local`
 | 1 | [Hyper-V + Windows Server 2022 Install](./part-01-hyperv-server-2022/) | Hyper-V, vSwitch, ISO install, initial server config | **Complete** |
 | 2 | [Active Directory + PowerShell Promotion](./part-02-active-directory/) | AD DS role, domain controller promotion, DNS | **Complete** |
 | 3 | [AD Users, OUs, and Command Prompt](./part-03-ad-users-cmd/) | User, group, OU, and AD command management | **Complete** |
-| 4 | [Windows 11 Domain Join](./part-04-windows11-domain-join/) | Client setup, static IP, domain join | In progress |
-| 5 | [Group Policy + Password Policies](./part-05-group-policy/) | GPOs, password policy, lockout policy, baselines | Not started |
-| 6 | [WSUS + Action1 Patching](./part-06-wsus-action1-patching/) | WSUS, endpoint enrollment, audit reporting | Not started |
+| 4 | [Windows 11 Domain Join](./part-04-windows11-domain-join/) | Client setup, static IP, domain join | **Complete** |
+| 5 | [Group Policy + Password Policies](./part-05-group-policy/) | GPOs, password policy, lockout policy, baselines | **Complete** |
+| 6 | [WSUS + Action1 Patching](./part-06-wsus-action1-patching/) | WSUS, endpoint enrollment, audit reporting | **Complete** |
 
 ### Phase 2: Cloud And Ticketing
 
 | # | Part | Skills | Status |
 | --- | --- | --- | --- |
-| 7 | [Entra ID + M365 Dev Tenant](./part-07-entra-id-m365/) | Microsoft 365 tenant, Entra ID, cloud users | Not started |
-| 8 | [Hybrid Identity / Entra Connect](./part-08-hybrid-identity/) | On-prem to cloud identity sync | Not started |
-| 9 | [ServiceNow PDI](./part-09-servicenow/) | ITSM workflow, ticket lifecycle, knowledge base | Not started |
+| 7 | [Entra ID + M365 Dev Tenant](./part-07-entra-id-m365/) | Microsoft 365 tenant, Entra ID, cloud users | **Complete** |
+| 8 | [Hybrid Identity / Entra Connect](./part-08-hybrid-identity/) | On-prem to cloud identity sync | **Complete** |
+| 9 | [ServiceNow PDI](./part-09-servicenow/) | ITSM workflow, ticket lifecycle, knowledge base | **Complete** |
 
 ### Phase 3: Operations
 
 | # | Part | Skills | Status |
 | --- | --- | --- | --- |
-| 10 | [Monitoring + Documentation](./part-10-monitoring-docs/) | Event Viewer, monitoring, runbooks, SOPs | Not started |
+| 10 | [Monitoring + Documentation](./part-10-monitoring-docs/) | Event Viewer, monitoring, runbooks, SOPs | **Complete** |
 
 ## Automation
 
