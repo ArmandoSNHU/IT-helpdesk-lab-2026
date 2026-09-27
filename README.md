@@ -129,9 +129,8 @@ This is a local training lab. Do not expose domain controllers, lab clients, RDP
 
 Armando Gomez  
 GitHub: [@ArmandoSNHU](https://github.com/ArmandoSNHU)  
-Portfolio: [gomezdev.tech](https://gomezdev.tech)
+Portfolio: [gomeztech.dev](https://gomeztech.dev)
 
 ## License
 
 MIT. See [LICENSE](./LICENSE).
-
